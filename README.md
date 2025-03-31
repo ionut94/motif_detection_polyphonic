@@ -42,8 +42,8 @@ The implementation follows an algorithm described in the paper. Given a MIDI fil
 
 1. Clone this repository:
    ```
-   git clone https://your-repo-url/music_paper.git
-   cd music_paper
+   git clone https://github.com/ionut94/motif_detection_polyphonic.git
+   cd motif_detection_polyphonic
    ```
 
 2. Install the required dependencies:
@@ -58,7 +58,7 @@ The implementation follows an algorithm described in the paper. Given a MIDI fil
 ├── data/                  # MIDI files and other input data
 │   ├── example1chords.mid
 │   └── twinkle.mid
-├── docs/                  # Documentation files
+├── docs/                  # TODO: Documentation files 
 ├── results/               # Results from analysis
 │   └── plots/             # Generated plots
 │       ├── complexity_analysis.png
@@ -73,7 +73,7 @@ The implementation follows an algorithm described in the paper. Given a MIDI fil
 │   ├── param_complexity_analysis.py  # Parameter-based analysis
 │   ├── suffix_tree.py     # Suffix tree implementation
 │   └── test_data.py       # Test cases for benchmark suite
-├── tests/                 # Unit tests
+├── tests/                 # TODO: Unit tests
 └── requirements.txt       # Project dependencies
 ```
 
