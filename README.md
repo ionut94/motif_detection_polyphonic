@@ -8,27 +8,36 @@ This project implements an algorithm for efficiently finding melodic motifs in M
 
 ## Algorithm
 
-The implementation follows an algorithm described in the paper. Given a MIDI file T containing tuples in the form (message, pitch, keyvelocity, channel, timestamp), and a melodic motif M of length m, each of the motif occurrences with delta, gamma bounded mismatches can be found as follows:
+The implementation follows the algorithm described in the paper, which involves the following key steps:
 
-1. **Extract each melodic part and convert to degenerate strings**: 
-   Each melodic part is extracted from the MIDI file and converted into a degenerate string X_{$} where chords are represented as non-solid symbols (multiple pitch options).
+1.  **Preprocessing (T -> T~, M -> P~):**
+    *   Extract melodic parts (channels) from the MIDI file `T`.
+    *   For each channel, create a `tilde{T}` sequence where each element is either a single pitch class (0-11) for a note or a *set* of unique pitch classes for notes occurring simultaneously (a chord/non-solid symbol).
+    *   Preprocess the input motif `M` (list of MIDI pitches) similarly to get its pitch class sequence `P~` (motifs are assumed to be solid, i.e., contain no chords).
 
-2. **Convert the motif M into a string P**:
-   The melodic motif is converted to a string representation.
+2.  **Solid Equivalents (T~ -> T_S, P~ -> P):**
+    *   Convert each `tilde{T}` into its solid equivalent string `T_S`. Solid symbols (single pitch classes) are mapped to characters (e.g., 'A'-'L'). Non-solid symbols (sets of pitch classes) are replaced by unique placeholder characters (e.g., `$`<sub>d</sub> from Unicode Private Use Area). A `loc_map` is stored, mapping each `$`<sub>d</sub> back to its original pitch class set.
+    *   Convert the motif pitch class sequence `P~` into its solid string `P` using the same character mapping as for solid symbols in `T_S`.
 
-3. **Create a combined string S**:
-   For each degenerate string X_{$}, create a new string S = X_{$}#_{1}P#_{2} along with a corresponding matching table, where #_{1} and #_{2} are special separator characters.
+3.  **Combined String (S = T_S #_1 P #_2):**
+    *   For each channel's `T_S`, create the combined string `S = T_S #_1 P #_2`, where `#_1` and `#_2` are unique separator characters not present in the alphabet of `T_S` or `P`.
 
-4. **Construct the suffix tree**:
-   For each string S, construct the unordered suffix tree in linear time.
+4.  **Matching Table (M):**
+    *   Define a matching function `M(char1, char2)` based on the algorithm's rules:
+        *   Solid vs. Solid: Match if equal pitch class. Mismatch otherwise, calculate difference `min((pc1-pc2)%12, (pc2-pc1)%12)` for gamma.
+        *   Non-solid (`$`<sub>d</sub>) vs. Solid (`p`): Match if `p`'s pitch class is in the set `loc_map[$`<sub>d</sub>]`. Mismatch otherwise, calculate minimum difference between `p` and elements in the set for gamma.
+        *   Separator vs. Any: Match only if identical separators.
+        *   Other cases (e.g., `$`<sub>d1</sub> vs `$`<sub>d2</sub>): Defined as mismatch.
 
-5. **Perform LCE queries**:
-   For each string S, perform n LCE_{delta} (S, i, n) queries.
-   - For each mismatch, check if it's within the delta, gamma bounds.
-   - If the mismatch is between a non-solid symbol and a solid symbol, identify the character which has the smallest difference with the queried character in P using the formula: min((x≠y) mod 12, (y≠x) mod 12)
+5.  **Suffix Tree Construction:**
+    *   Construct the suffix tree for the combined string `S` using Ukkonen's algorithm (O(|S|) time).
 
-6. **Identify occurrences**:
-   After each LCE_{delta+k} query, if the string returned has length m, then it is returned as a motif occurrence.
+6.  **LCE Queries (LCE_k(S, i, |T_S|+1, M)):**
+    *   For each potential start position `i` in `T_S` (from 0 to |T_S| - |P|), perform a Longest Common Extension query `lce_k_gamma_query(i, |T_S|+1, delta, gamma, M)`. This query compares the suffix of `S` starting at `i` (part of `T_S`) with the suffix starting at `|T_S|+1` (which is `P`).
+    *   The `lce_k_gamma_query` uses the suffix tree structure and the matching function `M` to find the length of the longest common prefix between the two suffixes, allowing up to `delta` mismatches and a cumulative mismatch difference up to `gamma`.
+
+7.  **Identify Occurrences:**
+    *   If the `lce_k_gamma_query` returns a length equal to the length of the motif `P` (|P|), then an occurrence is reported starting at index `i` in the original `T_S` for that channel.
 
 ## Requirements
 
@@ -89,9 +98,9 @@ python src/main.py data/example1chords.mid "60,64,67" [OPTIONS]
 
 - `midi_file`: Path to the MIDI file to analyze
 - `motif`: Comma-separated list of MIDI pitch values representing the melodic motif
-- `--delta`: Maximum allowed number of positions that can differ (default: 1)
+- `--delta`: Maximum allowed number of positions that can differ (default: 0)
 - `--gamma`: Maximum allowed Sum of Absolute Differences (SAD) between pattern and motif (default: 0)
-- `--debug`: Print additional debug information
+- `--debug`: Print additional debug information (T_S, loc_map, P)
 
 ### Examples
 
@@ -107,21 +116,22 @@ python src/main.py data/twinkle.mid "60,60,67,67,69,69,67" --delta 0 --gamma 0
 
 ## How It Works
 
-1. The MIDI file is loaded and analyzed to extract melodic parts by channel.
-2. Each melodic part is converted into a degenerate string representation where:
-   - Single notes are represented as characters (solid symbols)
-   - Chords are represented as sets of characters enclosed in brackets (non-solid symbols)
-3. The motif is converted to a string representation.
-4. For each melodic part, a suffix tree is constructed to efficiently find pattern occurrences.
-5. LCE queries with bounded mismatches are performed to identify potential motif occurrences.
-6. Occurrences are verified against the delta and gamma bounds.
-7. The list of motif occurrences is returned, showing the channel and position of each match.
+1.  The MIDI file is loaded, and melodic parts (channels) are extracted.
+2.  Each part is converted into a `tilde{T}` sequence (pitch classes or sets of pitch classes).
+3.  `tilde{T}` is converted to its solid equivalent string `T_S` (replacing non-solid sets with unique symbols) and a `loc_map` is created.
+4.  The input motif `M` is converted to its solid string `P`.
+5.  The combined string `S = T_S #_1 P #_2` is formed.
+6.  A suffix tree is built for `S` using Ukkonen's algorithm.
+7.  A matching function `M` is defined based on the algorithm's rules and the `loc_map`.
+8.  For each potential start position `i` in `T_S`, the `lce_k_gamma_query` method is called on the suffix tree, comparing the suffix starting at `i` against the suffix starting at `P`'s position in `S`, using the matching function `M` and the specified `delta` and `gamma` bounds.
+9.  If the query returns a length equal to `P`'s length, an occurrence is recorded at position `i` for that channel.
+10. The list of occurrences (channel, position) is returned.
 
 ## Advanced Features
 
-- **Degenerate String Support**: The algorithm handles both single notes and chords (represented as degenerate strings).
+- **Non-Solid Symbol Handling**: Correctly handles chords (non-solid symbols) during matching using solid equivalents and a location map, as per the paper.
 - **Pitch Class Matching**: Matches are found based on pitch classes (0-11), allowing for octave-invariant matching.
-- **Bounded Mismatches**: Allows for specified number of mismatches in both pitch (delta) and rhythm (gamma).
+- **Bounded Mismatches**: Allows for specified number of mismatches (`delta`) and a bounded Sum of Absolute Differences (`gamma`) for those mismatches.
 
 ## Benchmarking
 
