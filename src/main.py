@@ -46,7 +46,10 @@ def main():
         print(f"Error parsing motif: {e}")
         sys.exit(1)
 
-    print(f"Searching for motif: {motif} with delta={args.delta}, gamma={args.gamma}")
+    # Compute normalized (solid string) motif
+    motif_string = midi_processor.preprocess_motif(motif)
+    # Print both original and normalized motif
+    print(f"Searching for motif: {motif} (solid string: {motif_string}) with delta={args.delta}, gamma={args.gamma}")
 
     # Find motif occurrences using the algorithm from the paper
     try:

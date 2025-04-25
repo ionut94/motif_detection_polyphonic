@@ -190,17 +190,31 @@ class MIDIProcessor:
             single_note_count = sum(1 for item in part if isinstance(item, int))
             print(f"Channel {channel}: {len(part)} elements ({single_note_count} single notes, {chord_count} chords)")
 
-            # Display the tilde_T sequence
-            readable_sequence = []
-            for item in part:
+            # Display the tilde_T sequence with inline position markers every 10 notes
+            annotated_sequence = []
+            for idx, item in enumerate(part):
+                if idx % 10 == 0:
+                    annotated_sequence.append(f"[{idx}]")
                 if isinstance(item, set):
-                    # Sort pitch classes in the set for consistent display
                     sorted_pcs = sorted(list(item))
-                    readable_sequence.append(f"{{{','.join(map(str, sorted_pcs))}}}") # Use {} for sets
+                    annotated_sequence.append(f"{{{','.join(map(str, sorted_pcs))}}}")
                 elif isinstance(item, int):
-                    readable_sequence.append(str(item))
+                    annotated_sequence.append(str(item))
                 else:
-                    readable_sequence.append("?") # Should not happen
+                    annotated_sequence.append("?")  # Should not happen
 
-            print(f"Sequence: {' '.join(readable_sequence)}")
+            print(f"Sequence: {' '.join(annotated_sequence)}")
+            # Also display the solid-string representation (T_S) and mapping for this channel
+            T_S, loc_map = self.create_solid_equivalent(part)
+            # Print the T_S string with inline position markers every 10 symbols
+            # print(f"Solid string (T_S)): {T_S}")
+            annotated_T_S = []
+            for idx, ch in enumerate(T_S):
+                if idx % 10 == 0:
+                    annotated_T_S.append(f"[{idx}]")
+                annotated_T_S.append(ch)
+            print(f"Annotated T_S: {' '.join(annotated_T_S)}")
+            # Print loc_map for non-solid symbols
+            loc_map_str = ", ".join(f"'{k}':{{{','.join(map(str, sorted(v)))}}}" for k, v in loc_map.items())
+            print(f"loc_map: {{{loc_map_str}}}")
             print("------------")
