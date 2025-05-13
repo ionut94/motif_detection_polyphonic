@@ -6,9 +6,9 @@ import numpy as np
 # Add the src directory to the Python path if needed
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Assuming project structure handles this
 
-# Import SOLID_ALPHABET and NON_SOLID_START_CODE_POINT for character checks
-from src.midi_processor import MIDIProcessor, SOLID_ALPHABET, NON_SOLID_START_CODE_POINT
-from src.suffix_tree import SuffixTree # Will need modification later
+# Use relative imports for modules within the same package (src)
+from midi_processor import MIDIProcessor, SOLID_ALPHABET, NON_SOLID_START_CODE_POINT
+from suffix_tree import SuffixTree # Use absolute import
 
 # Define separators (ensure they are unique and outside other alphabets)
 SEPARATOR_1 = '⚑' # Example separator 1
