@@ -1,25 +1,60 @@
-from typing import List, Tuple, Dict, Set, Union, Callable # Added Union, Callable
+from typing import List, Tuple, Dict, Set, Union, Callable
 import os
 import sys
 import numpy as np
 
-# Add the src directory to the Python path if needed
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Assuming project structure handles this
-
-# Use relative imports for modules within the same package (src)
-from midi_processor import MIDIProcessor, SOLID_ALPHABET, NON_SOLID_START_CODE_POINT
-from suffix_tree import SuffixTree # Use absolute import
-
-# Define separators (ensure they are unique and outside other alphabets)
-SEPARATOR_1 = '⚑' # Example separator 1
-SEPARATOR_2 = '⚐' # Example separator 2
+# Use try-except for relative imports
+try:
+    from .midi_processor import MIDIProcessor, SOLID_ALPHABET, NON_SOLID_START_CODE_POINT
+    from .suffix_tree import SuffixTree
+    from .constants import SEPARATOR_1, SEPARATOR_2
+    from .exceptions import MotifFinderError, SuffixTreeError, ParameterError
+    from .config import MotifSearchConfig, MotifConfig
+except ImportError:
+    # Fallback for standalone usage
+    from midi_processor import MIDIProcessor, SOLID_ALPHABET, NON_SOLID_START_CODE_POINT
+    from suffix_tree import SuffixTree
+    
+    # Define constants
+    SEPARATOR_1 = '⚑'
+    SEPARATOR_2 = '⚐'
+    
+    # Define fallback exceptions
+    class MotifFinderError(Exception):
+        pass
+    class SuffixTreeError(Exception):
+        pass
+    class ParameterError(Exception):
+        pass
 
 class MotifFinder:
+    """
+    A class for finding motifs in MIDI files using suffix trees and approximate matching.
+    
+    This class implements the algorithm described in the research paper for finding
+    melodic motifs with tolerance for mismatches (delta) and pitch differences (gamma).
+    """
+    
     def __init__(self, midi_file_path: str):
-        """Initialize with a MIDI file path."""
-        self.midi_processor = MIDIProcessor(midi_file_path)
-        # We don't need to store intermediate representations here anymore
-        # The processor now handles tilde_T internally
+        """
+        Initialize the MotifFinder with a MIDI file.
+        
+        Args:
+            midi_file_path: Path to the MIDI file to analyze
+            
+        Raises:
+            FileNotFoundError: If the MIDI file doesn't exist
+            MIDIProcessingError: If the MIDI file cannot be processed
+        """
+        if not os.path.exists(midi_file_path):
+            raise FileNotFoundError(f"MIDI file not found: {midi_file_path}")
+        
+        try:
+            self.midi_processor = MIDIProcessor(midi_file_path)
+        except Exception as e:
+            raise MotifFinderError(f"Failed to initialize MIDI processor: {e}")
+        
+        self.midi_file_path = midi_file_path
 
     def _calculate_pitch_diff(self, pc1: int, pc2: int) -> int:
         """Calculates the minimum difference between two pitch classes modulo 12."""
@@ -125,82 +160,93 @@ class MotifFinder:
         return match
 
 
-    def find_motif_occurrences(self, motif_pitches: List[int], delta: int, gamma: int) -> List[Tuple[int, int]]:
+    def find_motif_occurrences(self, motif_pitches: List[int], delta: int = 0, gamma: int = 0) -> List[Tuple[int, int]]:
         """
         Finds occurrences of a melodic motif in a MIDI file using the algorithm
         from the paper (solid equivalents, matching table, LCE_k).
 
         Args:
             motif_pitches: The melodic motif as a list of MIDI pitches.
-            delta: The maximum allowed number of mismatches.
-            gamma: The maximum allowed sum of absolute pitch differences for mismatches.
+            delta: The maximum allowed number of mismatches (default: 0).
+            gamma: The maximum allowed sum of absolute pitch differences for mismatches (default: 0).
 
         Returns:
             A list of tuples (channel, start_index_in_T_S) for each occurrence found.
+            
+        Raises:
+            ParameterError: If parameters are invalid
+            MotifFinderError: If motif processing fails
         """
+        # Validate parameters
+        if delta < 0 or gamma < 0:
+            raise ParameterError(f"Delta and gamma must be non-negative: delta={delta}, gamma={gamma}")
+        
+        if not motif_pitches:
+            raise ParameterError("Motif cannot be empty")
+        
         occurrences = []
 
-        # Preprocess the motif M into its solid string P
-        P = self.midi_processor.preprocess_motif(motif_pitches)
-        m = len(P)
-        if m == 0:
-            print("Warning: Motif P is empty after preprocessing.")
-            return []
+        try:
+            # Preprocess the motif M into its solid string P
+            P = self.midi_processor.preprocess_motif(motif_pitches)
+            m = len(P)
+            if m == 0:
+                raise MotifFinderError("Motif P is empty after preprocessing")
 
-        # Get all channels present in the MIDI file
-        channels = self.midi_processor.tilde_T_parts.keys()
+            # Get all channels present in the MIDI file
+            channels = self.midi_processor.tilde_T_parts.keys()
+            if not channels:
+                raise MotifFinderError("No channels found in MIDI file")
 
-        for channel in channels:
-            # Get the tilde_T representation for this channel
-            tilde_T = self.midi_processor.get_tilde_T(channel)
-            if not tilde_T:
-                continue # Skip empty channels
+            for channel in channels:
+                try:
+                    # Get the tilde_T representation for this channel
+                    tilde_T = self.midi_processor.get_tilde_T(channel)
+                    if not tilde_T:
+                        continue # Skip empty channels
 
-            # Create the solid equivalent T_S and the location map loc_map
-            T_S, loc_map = self.midi_processor.create_solid_equivalent(tilde_T)
-            n = len(T_S)
-            if n < m:
-                continue # Skip if text is shorter than pattern
+                    # Create the solid equivalent T_S and the location map loc_map
+                    T_S, loc_map = self.midi_processor.create_solid_equivalent(tilde_T)
+                    n = len(T_S)
+                    if n < m:
+                        continue # Skip if text is shorter than pattern
 
-            # Create the combined string S = T_S #_1 P #_2
-            S = T_S + SEPARATOR_1 + P + SEPARATOR_2
-            len_T_S = n
-            start_index_P = len_T_S + 1 # Index where P starts in S
+                    # Create the combined string S = T_S #_1 P #_2
+                    S = T_S + SEPARATOR_1 + P + SEPARATOR_2
+                    len_T_S = n
+                    start_index_P = len_T_S + 1 # Index where P starts in S
 
-            # Create the matching function M incorporating gamma
-            # Note: The gamma check is integrated here for efficiency during LCE
-            match_function = self._create_matching_function(loc_map, gamma)
+                    # Create the matching function M incorporating gamma
+                    match_function = self._create_matching_function(loc_map, gamma)
 
-            # Construct the Suffix Tree for S
-            # Construct the Suffix Tree for S
-            try:
-                # Now uses the implemented SuffixTree with Ukkonen's
-                suffix_tree = SuffixTree(S)
-            except Exception as e:
-                 print(f"Error creating/using SuffixTree for channel {channel}: {e}")
-                 continue # Skip channel if suffix tree fails
+                    # Construct the Suffix Tree for S
+                    suffix_tree = SuffixTree(S)
 
+                    # Perform n-m+1 LCE_k_gamma queries using the suffix tree
+                    for i in range(len_T_S - m + 1):
+                        # Call the LCE query method from the SuffixTree instance
+                        lce_length = suffix_tree.lce_k_gamma_query(
+                            i,
+                            start_index_P,
+                            delta,
+                            gamma,
+                            match_function,
+                            m  # Maximum length is the pattern length
+                        )
 
-            # Perform n-m+1 LCE_k_gamma queries using the suffix tree
-            for i in range(len_T_S - m + 1):
-                # Call the LCE query method from the SuffixTree instance
-                # It compares suffix starting at i (in T_S part of S)
-                # with suffix starting at start_index_P (P part of S)
-                lce_length = suffix_tree.lce_k_gamma_query(
-                    i,
-                    start_index_P,
-                    delta,
-                    gamma,
-                    match_function
-                )
+                        # Check if the LCE length equals the motif length
+                        if lce_length == m:
+                            occurrences.append((channel, i))
+                            
+                except SuffixTreeError as e:
+                    raise MotifFinderError(f"Suffix tree error for channel {channel}: {e}")
+                except Exception as e:
+                    # Log the error but continue with other channels
+                    print(f"Warning: Error processing channel {channel}: {e}")
+                    continue
 
-                # Check if the LCE length equals the motif length
-                if lce_length == m:
-                    occurrences.append((channel, i))
-
-
-        return occurrences
+            return occurrences
+            
+        except Exception as e:
+            raise MotifFinderError(f"Failed to find motif occurrences: {e}")
     
-    # Removed _convert_motif_to_string (handled by MIDIProcessor.preprocess_motif)
-    # Removed _count_non_solid_symbols (not needed with solid equivalents)
-    # Removed _verify_mismatches (logic integrated into matching function and LCE query)

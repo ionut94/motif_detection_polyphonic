@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-import sys, os
-# Add this script's directory to PYTHONPATH so local modules can be imported
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+"""
+Benchmark tool for the motif finder algorithm.
+
+This script runs comprehensive tests on the motif finding implementation
+to measure performance and verify correctness across different test cases.
+"""
+
 import time
 import argparse
 import json
 import datetime
 import glob
 import pandas as pd
-from pandas import DataFrame # Import DataFrame directly
+from pandas import DataFrame
 from collections import defaultdict
 from typing import List, Dict, Tuple, Any, Union, Callable, Optional
 
-# Adjust top-level imports (removed src. prefix)
 from motif_finder import MotifFinder
-# from midi_processor import MIDIProcessor # May not be needed directly
 from test_data import get_test_cases
 
 # Import for memory tracking

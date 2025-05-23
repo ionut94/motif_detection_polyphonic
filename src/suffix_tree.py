@@ -1,31 +1,79 @@
-from typing import List, Dict, Tuple, Set, Optional, Callable, Union # Added Union
+from typing import List, Dict, Tuple, Set, Optional, Callable, Union
 import numpy as np
 
-# Helper class for the global end pointer in Ukkonen's
+# Use try-except for relative imports
+try:
+    from .constants import TERMINAL_CHAR
+    from .exceptions import SuffixTreeError
+except ImportError:
+    # Fallback for standalone usage
+    TERMINAL_CHAR = chr(0)
+    
+    class SuffixTreeError(Exception):
+        pass
+
 class GlobalEnd:
+    """
+    Helper class for managing the global end pointer in Ukkonen's algorithm.
+    
+    This class encapsulates the global end pointer used in Ukkonen's suffix tree
+    construction algorithm, allowing efficient handling of leaf edge extensions.
+    """
+    
     def __init__(self):
+        """Initialize with value -1 (before any characters processed)."""
         self.value = -1
+        
     def increment(self):
+        """Increment the global end pointer by 1."""
         self.value += 1
+        
     def __int__(self):
+        """Return the integer value of the global end pointer."""
         return self.value
+        
     def __repr__(self):
+        """String representation of the global end pointer."""
         return str(self.value)
 
 class Node:
-    """Node class for the suffix tree."""
-    def __init__(self, start: int = -1, end: Optional[Union[int, GlobalEnd]] = None, suffix_index: int = -1): # Allow int for end
-        self.children: Dict[str, 'Node'] = {} # Maps first char of edge label to child node
+    """
+    Node class for the suffix tree.
+    
+    Each node represents either an internal node or a leaf in the suffix tree.
+    Internal nodes represent branch points where suffixes diverge, while leaves
+    represent the end of individual suffixes.
+    """
+    
+    def __init__(self, start: int = -1, end: Optional[Union[int, GlobalEnd]] = None, suffix_index: int = -1):
+        """
+        Initialize a suffix tree node.
+        
+        Args:
+            start: Starting index of the edge label in the original string
+            end: Ending index (can be GlobalEnd for leaves or int for internal nodes)
+            suffix_index: Index of suffix ending at this node (for leaves only)
+        """
+        self.children: Dict[str, 'Node'] = {}  # Maps first char of edge label to child node
         self.suffix_link: Optional['Node'] = None
         # Edge label represented by string slice S[start:end+1]
         self.start = start
         # 'end' can be a pointer to a global 'end' for leaf edges or an int for internal edges
         self.end = end
-        self.suffix_index = suffix_index # Index of suffix ending at this node (if it's a leaf)
+        self.suffix_index = suffix_index  # Index of suffix ending at this node (if it's a leaf)
 
     def edge_length(self, current_end: GlobalEnd) -> int:
-        """Calculates the length of the edge leading to this node."""
-        if self.start == -1: return 0 # Root has 0 length edge incoming
+        """
+        Calculates the length of the edge leading to this node.
+        
+        Args:
+            current_end: The current global end pointer
+            
+        Returns:
+            Length of the incoming edge to this node
+        """
+        if self.start == -1: 
+            return 0  # Root has 0 length edge incoming
         # Use current_end for leaves (where end is GlobalEnd), otherwise use the node's fixed int end
         effective_end = int(current_end) if isinstance(self.end, GlobalEnd) else int(self.end)
         return effective_end - self.start + 1
@@ -33,14 +81,24 @@ class Node:
 class SuffixTree:
     """Implementation of a suffix tree using Ukkonen's algorithm."""
     def __init__(self, s: str):
-        """Initialize and build the suffix tree for the input string 's'."""
-        # Append a unique terminal character not in the alphabet
-        # Using chr(0) assuming it won't appear in the processed MIDI strings
-        self.s = s + chr(0)
-        self.N = len(self.s)
-        self.root = Node(start=-1, end=-1) # Root node specifics
-        self.root.suffix_link = self.root
-        self._build_ukkonen()
+        """
+        Initialize and build the suffix tree for the input string 's'.
+        
+        Args:
+            s: Input string for which to build the suffix tree
+            
+        Raises:
+            SuffixTreeError: If suffix tree construction fails
+        """
+        try:
+            # Append a unique terminal character not in the alphabet
+            self.s = s + TERMINAL_CHAR
+            self.N = len(self.s)
+            self.root = Node(start=-1, end=-1)  # Root node specifics
+            self.root.suffix_link = self.root
+            self._build_ukkonen()
+        except Exception as e:
+            raise SuffixTreeError(f"Failed to build suffix tree: {e}")
 
     def _build_ukkonen(self):
         """Build the suffix tree using Ukkonen's algorithm."""
@@ -143,12 +201,12 @@ class SuffixTree:
                 # active_edge_char will be set to s[i] at start of next iteration if needed.
 
 
-    def lce_k_gamma_query(self, i: int, j: int, delta_bound: int, gamma_bound: int, match_function: Callable) -> int:
+    def lce_k_gamma_query(self, i: int, j: int, delta_bound: int, gamma_bound: int, match_function: Callable, max_length: int = None) -> int:
         """
         Performs the Longest Common Extension query between suffixes starting
         at index i and j in the original string S (excluding terminal char),
         allowing up to delta_bound mismatches and a total gamma_bound difference,
-        using the provided match_function. Uses tree traversal.
+        using the provided match_function. Uses direct character comparison.
 
         Args:
             i: Start index of the first suffix in S (original string, pre-terminal).
@@ -156,6 +214,7 @@ class SuffixTree:
             delta_bound: Maximum allowed mismatches.
             gamma_bound: Maximum allowed sum of differences for mismatches.
             match_function: The function implementing the matching table M logic.
+            max_length: Optional maximum length to compare (for pattern matching).
 
         Returns:
             The length of the longest common extension found within bounds.
@@ -165,93 +224,39 @@ class SuffixTree:
         if i >= original_N or j >= original_N:
             return 0
 
-        node = self.root
         length = 0
         current_delta = 0
         current_gamma = 0
-        # Use N-1 (end of original string) for edge length calculations involving leaves
-        effective_end_val = self.N - 1
 
+        # Compare characters directly between the two suffixes
         while True:
-            # Determine next characters for comparison based on current length
-            idx_i = i + length
-            idx_j = j + length
+            current_i = i + length
+            current_j = j + length
 
             # Stop if either suffix goes beyond original string length
-            if idx_i >= original_N or idx_j >= original_N:
+            if current_i >= original_N or current_j >= original_N:
                 break
 
-            char_i = self.s[idx_i]
-            # We need to find the edge corresponding to char_i from the current node 'node'
+            # Stop if we've reached the maximum length constraint
+            if max_length is not None and length >= max_length:
+                break
 
-            # Find the edge corresponding to char_i from the current node
-            edge_node = node.children.get(char_i)
+            s_char_i = self.s[current_i]
+            s_char_j = self.s[current_j]
 
-            if edge_node:
-                # Found an edge starting with char_i. Compare along the edge.
-                edge_start = edge_node.start
-                # Use actual end if internal, effective_end_val if leaf
-                edge_end = int(edge_node.end) if isinstance(edge_node.end, int) else effective_end_val
-                edge_len = edge_end - edge_start + 1
+            # Perform match using the provided function
+            is_match, mismatch_increase, gamma_increase = match_function(s_char_i, s_char_j)
 
-                # Compare characters along the edge
-                for k in range(edge_len):
-                    current_i = i + length
-                    current_j = j + length
+            if not is_match:
+                current_delta += mismatch_increase
+                current_gamma += gamma_increase
 
-                    # Check if indices are still within bounds of original S
-                    if current_i >= original_N or current_j >= original_N:
-                        # Reached end of original S for one suffix while traversing edge
-                        # The loop should terminate naturally, return current length
-                        return length
+                if current_delta > delta_bound or current_gamma > gamma_bound:
+                    # Bounds exceeded, stop here and return length before this mismatch
+                    break
 
-                    s_char_i = self.s[current_i]
-                    s_char_j = self.s[current_j]
-                    tree_edge_char = self.s[edge_start + k]
-
-                    # Sanity check: character from string i should match tree edge
-                    if s_char_i != tree_edge_char:
-                        # This should ideally not happen if Ukkonen's is correct and traversal starts right
-                        print(f"Error: Mismatch between string i ({s_char_i}) and tree edge ({tree_edge_char}) at length {length}, k={k}")
-                        return length # Return current matched length before error
-
-                    # Perform match using the provided function
-                    is_match, mismatch_increase, gamma_increase = match_function(s_char_i, s_char_j)
-
-                    if not is_match:
-                        current_delta += mismatch_increase
-                        current_gamma += gamma_increase
-
-                        if current_delta > delta_bound or current_gamma > gamma_bound:
-                            # Bounds exceeded, stop here
-                            return length # Return length *before* this mismatch
-
-                    # If match or mismatch within bounds, increment length
-                    length += 1
-
-                    # Check again if indices went out of bounds after incrementing length
-                    if (i + length) >= original_N or (j + length) >= original_N:
-                         # Reached end of original S exactly at the end of this comparison
-                         return length
-
-                # If we successfully traversed the whole edge without exceeding bounds or S length
-                node = edge_node # Move to the child node for the next iteration
-
-            else:
-                # No edge starting with char_i from current node. Paths diverge here.
-                # Perform one last check for this diverging character pair.
-                s_char_i = self.s[i + length]
-                s_char_j = self.s[j + length]
-                is_match, mismatch_increase, gamma_increase = match_function(s_char_i, s_char_j)
-
-                if not is_match:
-                     current_delta += mismatch_increase
-                     current_gamma += gamma_increase
-                     if current_delta > delta_bound or current_gamma > gamma_bound:
-                          break # Divergence exceeds bounds immediately, return current length
-                # If divergence is within bounds, we count this character and stop
-                length += 1
-                break # Paths diverge, return final length
+            # If match or mismatch within bounds, increment length
+            length += 1
 
         return length
 

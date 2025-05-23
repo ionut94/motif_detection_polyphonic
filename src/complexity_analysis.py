@@ -318,7 +318,7 @@ def measure_text_size_execution(T_S_prefix: str, loc_map_prefix: Dict[str, Set[i
         for i in range(n - m + 1):
             # We only care about the time, not the result for complexity analysis
             _ = suffix_tree.lce_k_gamma_query(
-                i, start_index_P, delta, gamma, match_function
+                i, start_index_P, delta, gamma, match_function, m
             )
     except Exception as e:
          print(f"\nError during LCE query for n={n}, i={i}: {e}")

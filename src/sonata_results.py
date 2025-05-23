@@ -9,6 +9,7 @@ import gc
 import ast
 import pandas as pd
 import mido
+import glob
 
 # Optional memory tracking
 try:
@@ -25,7 +26,8 @@ def main():
     # Paths
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = os.path.join(base, 'data', 'paper_experiments.csv')
-    midi_dir = os.path.join(base, 'data', 'motif_midi')
+    # Directory containing full sonata MIDI files (SonateXX_* files)
+    midi_dir = os.path.join(base, 'data', 'sonate')
 
     # Read experiments table
     df = pd.read_csv(csv_path, comment='/', skipinitialspace=True)
@@ -36,7 +38,13 @@ def main():
     for _, row in df.iterrows():
         # Ensure the sonata identifier has two digits (e.g., '01', '02')
         sonata = str(row['SONATA']).zfill(2)
-        midi_file = os.path.join(midi_dir, f"{sonata}-1.mid")
+        # Locate the MIDI file in the sonate folder matching the sonata number
+        pattern = os.path.join(midi_dir, f"Sonate{sonata}_*.mid")
+        matches = glob.glob(pattern)
+        if not matches:
+            print(f"Skipped SONATA {sonata}: no matching MIDI file in {midi_dir}")
+            continue
+        midi_file = matches[0]
         # Parse motif list: all rotations from last column
         try:
             motif_data = ast.literal_eval(row.iloc[-1])  # last column: list of motif rotations
@@ -71,7 +79,7 @@ def main():
             }
         # Load MIDI once per sonata for motif search
         finder = MotifFinder(midi_file)
-        delta, gamma = 0, 0
+        delta, gamma = 2, 24  # default parameters for motif search 
 
         # Run search for each motif rotation
         for idx, seq in enumerate(motif_data):

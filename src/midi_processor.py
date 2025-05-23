@@ -9,6 +9,16 @@ SOLID_ALPHABET = [chr(ord('A') + i) for i in range(12)]
 # Using Unicode Private Use Area characters for safety
 NON_SOLID_START_CODE_POINT = 0xE000
 
+# For future compatibility with constants module
+try:
+    from .constants import NON_SOLID_START_CODE_POINT as CONST_NON_SOLID
+    NON_SOLID_START_CODE_POINT = CONST_NON_SOLID
+    # Convert string alphabet to list for compatibility
+    from .constants import SOLID_ALPHABET as CONST_SOLID_STR
+    SOLID_ALPHABET = list(CONST_SOLID_STR)
+except ImportError:
+    pass  # Use the constants defined above
+
 class MIDIProcessor:
     def __init__(self, midi_file_path: str):
         """Initialize with the path to a MIDI file."""
