@@ -79,7 +79,7 @@ def main():
             }
         # Load MIDI once per sonata for motif search
         finder = MotifFinder(midi_file)
-        delta, gamma = 2, 24  # default parameters for motif search 
+        delta, gamma = 2, 16  # default parameters for motif search 
 
         # Run search for each motif rotation
         for idx, seq in enumerate(motif_data):
