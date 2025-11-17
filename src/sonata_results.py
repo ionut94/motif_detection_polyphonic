@@ -7,6 +7,7 @@ import sys
 import time
 import gc
 import ast
+import argparse
 import pandas as pd
 import mido
 import glob
@@ -22,7 +23,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from motif_finder import MotifFinder
 
-def main():
+def main(delta=2, gamma=16):
     # Paths
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = os.path.join(base, 'data', 'paper_experiments.csv')
@@ -78,8 +79,7 @@ def main():
                 'chord_count': chord_count
             }
         # Load MIDI once per sonata for motif search
-        finder = MotifFinder(midi_file)
-        delta, gamma = 2, 16  # default parameters for motif search 
+        finder = MotifFinder(midi_file) 
 
         # Run search for each motif rotation
         for idx, seq in enumerate(motif_data):
@@ -125,7 +125,7 @@ def main():
     # Save summary
     out_dir = os.path.join(base, 'results')
     os.makedirs(out_dir, exist_ok=True)
-    out_csv = os.path.join(out_dir, 'sonata_summary.csv')
+    out_csv = os.path.join(out_dir, f'sonata_summary_{delta}_{gamma}.csv')
     res_df.to_csv(out_csv, index=False)
     print(f"Detailed summary written to {out_csv}")
 
@@ -141,9 +141,16 @@ def main():
     meta_df = pd.DataFrame.from_dict(sonata_meta, orient='index')
     meta_df.index = meta_df.index.astype(int)
     agg_df = agg_df.merge(meta_df, left_on='sonata', right_index=True)
-    agg_csv = os.path.join(out_dir, 'sonata_summary_per_sonata.csv')
+    agg_csv = os.path.join(out_dir, f'sonata_summary_per_sonata_{delta}_{gamma}.csv')
     agg_df.to_csv(agg_csv, index=False)
     print(f"Aggregated per-sonata summary written to {agg_csv}")
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Run motif search on Beethoven sonatas')
+    parser.add_argument('--delta', type=int, default=2, help='Maximum allowed pitch mismatches (default: 2)')
+    parser.add_argument('--gamma', type=int, default=16, help='Maximum allowed sum of absolute differences (default: 16)')
+    args = parser.parse_args()
+    
+    print(f"Running motif search with δ={args.delta}, γ={args.gamma}")
+    print("-" * 80)
+    main(delta=args.delta, gamma=args.gamma)

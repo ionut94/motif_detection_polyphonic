@@ -72,3 +72,7 @@ venv.bak/
 
 # Project specific
 results/*.json
+
+# Large MIDI files (to prevent accidental commits)
+data/*_repeated*.mid
+data/**/*_repeated*.mid
