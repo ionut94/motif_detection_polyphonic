@@ -8,22 +8,29 @@ application parameters, validation, and settings.
 from dataclasses import dataclass
 from typing import Optional, List
 
-# Use try-except for relative imports to support both package and standalone usage
+# Use layered imports so standalone scripts can still reference shared modules
 try:
     from .constants import Config
+except ImportError:
+    try:
+        from constants import Config  # type: ignore
+    except ImportError:
+        class Config:
+            DEFAULT_DELTA = 0
+            DEFAULT_GAMMA = 0
+            MIN_MOTIF_LENGTH = 2
+            MAX_MOTIF_LENGTH = 100
+            DEFAULT_OUTPUT_FORMAT = 'csv'
+            MAX_CHANNELS = 16
+
+try:
     from .exceptions import ParameterError
 except ImportError:
-    # Fallback for standalone usage
-    class Config:
-        DEFAULT_DELTA = 0
-        DEFAULT_GAMMA = 0
-        MIN_MOTIF_LENGTH = 2
-        MAX_MOTIF_LENGTH = 100
-        DEFAULT_OUTPUT_FORMAT = 'csv'
-        MAX_CHANNELS = 16
-    
-    class ParameterError(Exception):
-        pass
+    try:
+        from exceptions import ParameterError  # type: ignore
+    except ImportError:
+        class ParameterError(Exception):
+            pass
 
 @dataclass
 class MotifSearchConfig:

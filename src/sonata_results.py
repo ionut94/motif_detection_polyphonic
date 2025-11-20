@@ -147,7 +147,7 @@ def main(delta=2, gamma=16):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run motif search on Beethoven sonatas')
-    parser.add_argument('--delta', type=int, default=2, help='Maximum allowed pitch mismatches (default: 2)')
+    parser.add_argument('--delta', type=int, default=2, help='Maximum allowed per-note pitch-class difference (default: 2)')
     parser.add_argument('--gamma', type=int, default=16, help='Maximum allowed sum of absolute differences (default: 16)')
     args = parser.parse_args()
     

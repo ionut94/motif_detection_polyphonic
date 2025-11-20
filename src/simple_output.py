@@ -60,4 +60,5 @@ if __name__ == "__main__":
     
     midi_file_path = sys.argv[1]
     print_midi_info(midi_file_path)
+    prin
 

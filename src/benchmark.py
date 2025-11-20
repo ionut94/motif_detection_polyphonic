@@ -284,18 +284,20 @@ def run_beethoven_benchmark_for_sonata(notes_csv_path: str, delta: int, gamma: i
                 continue
             # Sliding-window search
             for i in range(len(pc_sequence) - m + 1):
-                mismatches = 0
                 gamma_sum = 0
+                within_bounds = True
                 for j in range(m):
                     # Minimum pitch-class difference modulo 12
                     diff = min((pattern[j] - pc_sequence[i+j]) % 12,
                                (pc_sequence[i+j] - pattern[j]) % 12)
-                    if diff > 0:
-                        mismatches += 1
-                        gamma_sum += diff
-                        if mismatches > delta or gamma_sum > gamma:
-                            break
-                if mismatches <= delta and gamma_sum <= gamma:
+                    if diff > delta:
+                        within_bounds = False
+                        break
+                    gamma_sum += diff
+                    if gamma_sum > gamma:
+                        within_bounds = False
+                        break
+                if within_bounds:
                     start_time_motif = notes_list[i]['onset']
                     end_time_motif = notes_list[i + m - 1]['onset'] + notes_list[i + m - 1]['duration']
                     detected_motifs.append((motif_type, start_time_motif, end_time_motif))
@@ -416,7 +418,7 @@ def run_benchmark_test(test_name: str, midi_file: str, motif: List[int],
         test_name: Name of the test
         midi_file: Path to the MIDI file
         motif: List of MIDI pitches representing the motif
-        delta: Maximum allowed pitch mismatches
+        delta: Maximum allowed per-note pitch-class difference
         gamma: Maximum allowed Sum of Absolute Differences
         expected_occurrences: Expected number of occurrences (None for no validation)
     

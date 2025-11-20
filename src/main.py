@@ -50,7 +50,7 @@ def main():
     parser = argparse.ArgumentParser(description='Find melodic motifs in MIDI files using the algorithm from the paper')
     parser.add_argument('midi_file', help='Path to the MIDI file')
     parser.add_argument('motif', help='Comma-separated list of MIDI pitches representing the motif')
-    parser.add_argument('--delta', type=int, default=0, help='Maximum allowed pitch mismatches (number of positions that can differ)')
+    parser.add_argument('--delta', type=int, default=0, help='Maximum allowed per-note pitch-class difference (in semitones)')
     parser.add_argument('--gamma', type=int, default=0, help='Maximum allowed Sum of Absolute Differences (SAD) between pattern and motif')
     parser.add_argument('--debug', action='store_true', help='Print debug information about the MIDI file')
 

@@ -205,13 +205,14 @@ class SuffixTree:
         """
         Performs the Longest Common Extension query between suffixes starting
         at index i and j in the original string S (excluding terminal char),
-        allowing up to delta_bound mismatches and a total gamma_bound difference,
-        using the provided match_function. Uses direct character comparison.
+        ensuring each individual mismatch is within delta_bound (per-note pitch
+        difference) and the cumulative difference stays within gamma_bound.
+        Uses direct character comparison.
 
         Args:
             i: Start index of the first suffix in S (original string, pre-terminal).
             j: Start index of the second suffix in S (original string, pre-terminal).
-            delta_bound: Maximum allowed mismatches.
+            delta_bound: Maximum allowed per-note pitch-class difference.
             gamma_bound: Maximum allowed sum of differences for mismatches.
             match_function: The function implementing the matching table M logic.
             max_length: Optional maximum length to compare (for pattern matching).
@@ -225,7 +226,6 @@ class SuffixTree:
             return 0
 
         length = 0
-        current_delta = 0
         current_gamma = 0
 
         # Compare characters directly between the two suffixes
@@ -245,15 +245,23 @@ class SuffixTree:
             s_char_j = self.s[current_j]
 
             # Perform match using the provided function
-            is_match, mismatch_increase, gamma_increase = match_function(s_char_i, s_char_j)
+            is_match, per_note_delta, gamma_increase = match_function(s_char_i, s_char_j)
 
             if not is_match:
-                current_delta += mismatch_increase
-                current_gamma += gamma_increase
-
-                if current_delta > delta_bound or current_gamma > gamma_bound:
-                    # Bounds exceeded, stop here and return length before this mismatch
+                if per_note_delta > delta_bound:
                     break
+
+                proposed_gamma = current_gamma + gamma_increase
+                if proposed_gamma > gamma_bound:
+                    break
+
+                current_gamma = proposed_gamma
+            else:
+                if gamma_increase:
+                    proposed_gamma = current_gamma + gamma_increase
+                    if proposed_gamma > gamma_bound:
+                        break
+                    current_gamma = proposed_gamma
 
             # If match or mismatch within bounds, increment length
             length += 1

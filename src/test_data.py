@@ -15,7 +15,7 @@ def get_test_cases(midi_folder):
     - test_name: String name of the test
     - midi_file: Path to the MIDI file
     - motif: List of MIDI pitches for the motif
-    - delta: Maximum allowed pitch mismatches (optional, default 0)
+    - delta: Maximum allowed per-note pitch-class difference (optional, default 0)
     - gamma: Maximum allowed Sum of Absolute Differences (optional, default 0)
     - expected_occurrences: Expected number of occurrences (optional)
     """
@@ -30,7 +30,7 @@ def get_test_cases(midi_folder):
             "expected_occurrences": 0 # Based on benchmark run
         },
         {
-            "test_name": "C major triad with 1 pitch mismatch",
+            "test_name": "C major triad with 1-semitone tolerance",
             "midi_file": os.path.join(midi_folder, "example1chords.mid"),
             "motif": [60, 64, 67],
             "delta": 1,
@@ -56,7 +56,7 @@ def get_test_cases(midi_folder):
             "expected_occurrences": 0 # Based on benchmark run
         },
         {
-            "test_name": "Twinkle twinkle opening motif with allowed mismatches",
+            "test_name": "Twinkle twinkle opening motif with tolerance",
             "midi_file": os.path.join(midi_folder, "twinkle.mid"),
             "motif": [60, 60, 67, 67, 69, 69, 67],
             "delta": 2,

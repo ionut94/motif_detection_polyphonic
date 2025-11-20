@@ -1,10 +1,10 @@
 # Melodic Motif Finder
 
-A Python implementation of an algorithm for finding melodic motifs in MIDI files with bounded mismatches.
+A Python implementation of an algorithm for finding melodic motifs in MIDI files with bounded pitch differences.
 
 ## Overview
 
-This project implements an algorithm for efficiently finding melodic motifs in MIDI files, as described in the academic paper. The algorithm allows for bounded mismatches in both the number of different positions (delta) and the Sum of Absolute Differences (gamma), making it robust for musical pattern matching where exact matches might be rare.
+This project implements an algorithm for efficiently finding melodic motifs in MIDI files, as described in the academic paper. The algorithm allows for bounded per-note pitch differences (delta) and a bounded Sum of Absolute Differences (gamma), making it robust for musical pattern matching where exact matches might be rare.
 
 ## Algorithm
 
@@ -34,7 +34,7 @@ The implementation follows the algorithm described in the paper, which involves 
 
 6.  **LCE Queries (LCE_k(S, i, |T_S|+1, M)):**
     *   For each potential start position `i` in `T_S` (from 0 to |T_S| - |P|), perform a Longest Common Extension query `lce_k_gamma_query(i, |T_S|+1, delta, gamma, M)`. This query compares the suffix of `S` starting at `i` (part of `T_S`) with the suffix starting at `|T_S|+1` (which is `P`).
-    *   The `lce_k_gamma_query` uses the suffix tree structure and the matching function `M` to find the length of the longest common prefix between the two suffixes, allowing up to `delta` mismatches and a cumulative mismatch difference up to `gamma`.
+    *   The `lce_k_gamma_query` uses the suffix tree structure and the matching function `M` to find the length of the longest common prefix between the two suffixes, ensuring every compared note pair differs by at most `delta` while the cumulative difference stays within `gamma`.
 
 7.  **Identify Occurrences:**
     *   If the `lce_k_gamma_query` returns a length equal to the length of the motif `P` (|P|), then an occurrence is reported starting at index `i` in the original `T_S` for that channel.
@@ -98,13 +98,13 @@ python src/main.py data/example1chords.mid "60,64,67" [OPTIONS]
 
 - `midi_file`: Path to the MIDI file to analyze
 - `motif`: Comma-separated list of MIDI pitch values representing the melodic motif
-- `--delta`: Maximum allowed number of positions that can differ (default: 0)
+- `--delta`: Maximum allowed per-note pitch-class difference in semitones (default: 0)
 - `--gamma`: Maximum allowed Sum of Absolute Differences (SAD) between pattern and motif (default: 0)
 - `--debug`: Print additional debug information (T_S, loc_map, P)
 
 ### Examples
 
-Find occurrences of a C-major triad with at most 1 position differing and SAD ≤ 2:
+Find occurrences of a C-major triad allowing each note to deviate by at most 1 semitone and SAD ≤ 2:
 ```bash
 python src/main.py data/example1chords.mid "60,62,64" --delta 1 --gamma 2
 ```
@@ -123,7 +123,7 @@ python src/main.py data/twinkle.mid "60,60,67,67,69,69,67" --delta 0 --gamma 0
 5.  The combined string `S = T_S #_1 P #_2` is formed.
 6.  A suffix tree is built for `S` using Ukkonen's algorithm.
 7.  A matching function `M` is defined based on the algorithm's rules and the `loc_map`.
-8.  For each potential start position `i` in `T_S`, the `lce_k_gamma_query` method is called on the suffix tree, comparing the suffix starting at `i` against the suffix starting at `P`'s position in `S`, using the matching function `M` and the specified `delta` and `gamma` bounds.
+8.  For each potential start position `i` in `T_S`, the `lce_k_gamma_query` method is called on the suffix tree, comparing the suffix starting at `i` against the suffix starting at `P`'s position in `S`, using the matching function `M` and enforcing the per-note `delta` and cumulative `gamma` bounds.
 9.  If the query returns a length equal to `P`'s length, an occurrence is recorded at position `i` for that channel.
 10. The list of occurrences (channel, position) is returned.
 
@@ -131,7 +131,7 @@ python src/main.py data/twinkle.mid "60,60,67,67,69,69,67" --delta 0 --gamma 0
 
 - **Non-Solid Symbol Handling**: Correctly handles chords (non-solid symbols) during matching using solid equivalents and a location map, as per the paper.
 - **Pitch Class Matching**: Matches are found based on pitch classes (0-11), allowing for octave-invariant matching.
-- **Bounded Mismatches**: Allows for specified number of mismatches (`delta`) and a bounded Sum of Absolute Differences (`gamma`) for those mismatches.
+- **Bounded Pitch Differences**: Allows every compared note to deviate by at most `delta` semitones while the cumulative Sum of Absolute Differences stays below `gamma`.
 
 ## Benchmarking
 
@@ -166,7 +166,7 @@ The benchmark suite:
 - Generates detailed reports of test results
 - Automatically saves results to the results directory in JSON format for comparison over time
 
-Test cases include various motif patterns, MIDI files, and delta/gamma parameter combinations, from simple exact matches to complex pattern searches with multiple allowed mismatches.
+Test cases include various motif patterns, MIDI files, and delta/gamma parameter combinations, from strict exact matches to searches that tolerate larger per-note differences.
 
 ## Complexity Analysis
 
@@ -211,10 +211,11 @@ python src/param_complexity_analysis.py data/twinkle.mid --analyze gamma --fixed
 ```
 
 This analysis helps understand:
-- How increasing the delta parameter (allowed pitch mismatches) affects execution time
-- How increasing the gamma parameter (allowed SAD) affects execution time
-- Whether parameters have linear, quadratic, or exponential effects on performance
-- Results are saved as plots to results/plots/delta_complexity.png and results/plots/gamma_complexity.png
+
+* How increasing the delta parameter (per-note tolerance) affects execution time
+* How increasing the gamma parameter (allowed SAD) affects execution time
+* Whether parameters have linear, quadratic, or exponential effects on performance
+* Results are saved as plots to results/plots/delta_complexity.png and results/plots/gamma_complexity.png
 
 Both tools generate visual plots that help in understanding the empirical complexity characteristics of the implementation.
 
@@ -224,5 +225,5 @@ Both tools generate visual plots that help in understanding the empirical comple
 
 ## Acknowledgments
 
-- [Reference to the original paper/authors]
-- [Any other acknowledgments]
+* [Reference to the original paper/authors]
+* [Any other acknowledgments]

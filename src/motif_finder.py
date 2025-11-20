@@ -32,7 +32,8 @@ class MotifFinder:
     A class for finding motifs in MIDI files using suffix trees and approximate matching.
     
     This class implements the algorithm described in the research paper for finding
-    melodic motifs with tolerance for mismatches (delta) and pitch differences (gamma).
+    melodic motifs with tolerance for bounded per-note pitch differences (delta)
+    and cumulative pitch differences (gamma).
     """
     
     def __init__(self, midi_file_path: str):
@@ -60,7 +61,7 @@ class MotifFinder:
         """Calculates the minimum difference between two pitch classes modulo 12."""
         return min((pc1 - pc2) % 12, (pc2 - pc1) % 12)
 
-    def _create_matching_function(self, loc_map: Dict[str, Set[int]], gamma_bound: int) -> Callable[[str, str], Tuple[bool, int, int]]:
+    def _create_matching_function(self, loc_map: Dict[str, Set[int]], gamma_bound: int) -> Callable[[str, str], Tuple[bool, float, int]]:
         """
         Creates the matching function M based on the algorithm's definition,
         incorporating the gamma check.
@@ -72,7 +73,7 @@ class MotifFinder:
         Returns:
             A function match(char1, char2) that returns:
             - bool: True if characters match according to M, False otherwise.
-            - int: Number of mismatches added (0 or 1).
+            - float: Per-note delta contribution (pitch difference, 0 for perfect matches).
             - int: Pitch difference added (for gamma calculation).
         """
         solid_chars = set(SOLID_ALPHABET)
@@ -81,10 +82,10 @@ class MotifFinder:
 
         memo = {} # Memoization for non-solid vs solid comparisons
 
-        def match(char1: str, char2: str) -> Tuple[bool, int, int]:
+        def match(char1: str, char2: str) -> Tuple[bool, float, int]:
             """
             Checks if char1 matches char2 based on the algorithm's matching table M.
-            Returns: (is_match, mismatch_count_increase, gamma_increase)
+            Returns: (is_match, per_note_delta, gamma_increase)
             """
             # Check memoization
             if (char1, char2) in memo:
@@ -98,7 +99,8 @@ class MotifFinder:
             # Case 1: Separators
             if char1 in separators or char2 in separators:
                 is_match = (char1 == char2)
-                result = (is_match, 0 if is_match else 1, 0) # Separator mismatch counts but adds 0 gamma
+                delta_value = 0.0 if is_match else float('inf')
+                result = (is_match, delta_value, 0)
                 # Don't memoize separator checks? Or maybe do. Let's memoize.
                 memo[(char1, char2)] = result
                 return result
@@ -108,11 +110,10 @@ class MotifFinder:
                 pc1 = ord(char1) - ord('A')
                 pc2 = ord(char2) - ord('A')
                 if pc1 == pc2:
-                    result = (True, 0, 0)
+                    result = (True, 0.0, 0)
                 else:
                     diff = self._calculate_pitch_diff(pc1, pc2)
-                    # Mismatch occurs if diff > 0, check if diff exceeds gamma later
-                    result = (False, 1, diff)
+                    result = (False, float(diff), diff)
                 memo[(char1, char2)] = result
                 return result
 
@@ -125,7 +126,7 @@ class MotifFinder:
                 non_solid_set = loc_map.get(char1)
                 if non_solid_set is None: # Should not happen if loc_map is correct
                      print(f"Warning: Non-solid char '{char1}' not found in loc_map.")
-                     result = (False, 1, gamma_bound + 1) # Treat as definite mismatch exceeding gamma
+                     result = (False, float('inf'), gamma_bound + 1)
                      memo[(char1, char2)] = result
                      return result
 
@@ -133,7 +134,7 @@ class MotifFinder:
 
                 # Check if solid_pc is directly in the set (match)
                 if solid_pc in non_solid_set:
-                    result = (True, 0, 0)
+                    result = (True, 0.0, 0)
                     memo[(char1, char2)] = result
                     return result
                 else:
@@ -144,7 +145,7 @@ class MotifFinder:
                     else:
                         min_diff = min(self._calculate_pitch_diff(solid_pc, chord_pc) for chord_pc in non_solid_set)
 
-                    result = (False, 1, min_diff)
+                    result = (False, float(min_diff), min_diff)
                     memo[(char1, char2)] = result
                     return result
 
@@ -153,7 +154,8 @@ class MotifFinder:
             # It assumes comparisons are between T_S and P (solid).
             # Treat as mismatch for safety.
             is_match = (char1 == char2) # Only match if the exact same $d symbol
-            result = (is_match, 0 if is_match else 1, 0) # Assume 0 gamma diff for $d vs $d
+            delta_value = 0.0 if is_match else float('inf')
+            result = (is_match, delta_value, 0)
             memo[(char1, char2)] = result
             return result
 
@@ -167,7 +169,7 @@ class MotifFinder:
 
         Args:
             motif_pitches: The melodic motif as a list of MIDI pitches.
-            delta: The maximum allowed number of mismatches (default: 0).
+            delta: Maximum allowed per-note pitch-class difference (in semitones).
             gamma: The maximum allowed sum of absolute pitch differences for mismatches (default: 0).
 
         Returns:
