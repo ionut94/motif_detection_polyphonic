@@ -39,7 +39,7 @@ def load_data(directory, label):
 
 def plot_fixed_delta(df):
     # Filter for requested gamma values
-    target_gammas = [2, 4, 8, 16, 24]
+    target_gammas = [0, 2, 4, 8, 16, 24]
     df_filtered = df[df['gamma'].isin(target_gammas)].copy()
     
     # Convert gamma to categorical for consistent plotting
@@ -47,8 +47,8 @@ def plot_fixed_delta(df):
     gamma_order = [str(g) for g in target_gammas]
     
     # Define styles
-    markers = ['o', 's', '^', 'D', 'X']
-    dashes = [(1, 0), (4, 1.5), (1, 1), (3, 1, 1, 1), (5, 1, 1, 1, 1, 1)] # Solid, Dashed, Dotted, Dash-dot, Dense Dash-dot
+    markers = ['o', 's', '^', 'D', 'X', 'P']
+    dashes = [(1, 0), (4, 1.5), (1, 1), (3, 1, 1, 1), (5, 1, 1, 1, 1, 1), (2, 2)] # Solid, Dashed, Dotted, Dash-dot, Dense Dash-dot, Loose Dashed
     palette = sns.color_palette("bright", n_colors=len(target_gammas))
 
     deltas = sorted(df_filtered['delta'].unique())
@@ -111,7 +111,7 @@ def plot_fixed_delta(df):
 
 def plot_fixed_gamma(df):
     # Filter for requested delta values
-    target_deltas = [2, 4, 8, 16, 24]
+    target_deltas = [0, 2, 4, 6]
     df_filtered = df[df['delta'].isin(target_deltas)].copy()
     
     # Convert delta to categorical for consistent plotting
@@ -119,8 +119,8 @@ def plot_fixed_gamma(df):
     delta_order = [str(d) for d in target_deltas]
 
     # Define styles
-    markers = ['o', 's', '^', 'D', 'X']
-    dashes = [(1, 0), (4, 1.5), (1, 1), (3, 1, 1, 1), (5, 1, 1, 1, 1, 1)]
+    markers = ['o', 's', '^', 'D', 'X', 'P']
+    dashes = [(1, 0), (4, 1.5), (1, 1), (3, 1, 1, 1), (5, 1, 1, 1, 1, 1), (2, 2)]
     palette = sns.color_palette("bright", n_colors=len(target_deltas))
     
     gammas = sorted(df_filtered['gamma'].unique())

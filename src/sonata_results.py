@@ -23,7 +23,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from motif_finder import MotifFinder
 
-def main(delta=2, gamma=16):
+def main(delta=2, gamma=16, runs=1):
     # Paths
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     csv_path = os.path.join(base, 'data', 'paper_experiments.csv')
@@ -89,22 +89,33 @@ def main(delta=2, gamma=16):
                 print(f"Skipped SONATA {sonata} rotation {idx}: invalid motif ({e})")
                 continue
 
-            # force garbage collection before measuring baseline memory
-            if has_psutil:
-                gc.collect()
-                mem_before = psutil.Process().memory_info().rss
-            else:
-                mem_before = None
-            t0 = time.time()
-            occs = finder.find_motif_occurrences(motif, delta, gamma)
-            duration = time.time() - t0
-            # force garbage collection before measuring final memory
-            if has_psutil:
-                gc.collect()
-                mem_after = psutil.Process().memory_info().rss
-            else:
-                mem_after = None
-            mem_used = (mem_after - mem_before) / (1024**2) if has_psutil else None
+            durations = []
+            mem_usages = []
+            occs = []
+
+            for _ in range(runs):
+                # force garbage collection before measuring baseline memory
+                if has_psutil:
+                    gc.collect()
+                    mem_before = psutil.Process().memory_info().rss
+                else:
+                    mem_before = None
+                t0 = time.time()
+                occs = finder.find_motif_occurrences(motif, delta, gamma)
+                duration = time.time() - t0
+                # force garbage collection before measuring final memory
+                if has_psutil:
+                    gc.collect()
+                    mem_after = psutil.Process().memory_info().rss
+                    mem_used = (mem_after - mem_before) / (1024**2)
+                    mem_usages.append(mem_used)
+                else:
+                    mem_usages.append(None)
+                
+                durations.append(duration)
+
+            avg_duration = sum(durations) / len(durations)
+            avg_mem = sum(m for m in mem_usages if m is not None) / len([m for m in mem_usages if m is not None]) if any(m is not None for m in mem_usages) else None
 
             results.append({
                 'sonata': int(sonata),
@@ -112,8 +123,8 @@ def main(delta=2, gamma=16):
                 'midi_file': os.path.basename(midi_file),
                 'motif': motif,
                 'occurrences': len(occs),
-                'time_s': duration,
-                'memory_mb': mem_used
+                'time_s': avg_duration,
+                'memory_mb': avg_mem
             })
 
     # Summarize
@@ -149,8 +160,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run motif search on Beethoven sonatas')
     parser.add_argument('--delta', type=int, default=2, help='Maximum allowed per-note pitch-class difference (default: 2)')
     parser.add_argument('--gamma', type=int, default=16, help='Maximum allowed sum of absolute differences (default: 16)')
+    parser.add_argument('--runs', type=int, default=1, help='Number of runs to average over (default: 1)')
     args = parser.parse_args()
     
-    print(f"Running motif search with δ={args.delta}, γ={args.gamma}")
+    print(f"Running motif search with δ={args.delta}, γ={args.gamma}, runs={args.runs}")
     print("-" * 80)
-    main(delta=args.delta, gamma=args.gamma)
+    main(delta=args.delta, gamma=args.gamma, runs=args.runs)
